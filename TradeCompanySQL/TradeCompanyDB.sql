@@ -94,7 +94,7 @@ gender CHAR(1) DEFAULT 'M',
 surname VARCHAR(30),
 name VARCHAR(30),
 patronymic VARCHAR(30),
-departmentId INT REFERENCES personnels(Id)
+departmentId INT REFERENCES departments(Id)
 ) ENGINE = INNODB;
 
 /*9) Добавляем названия отделов */
