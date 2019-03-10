@@ -204,7 +204,7 @@ INNER JOIN departments
 ON personnels.departmentId = departments.Id
 WHERE personnels.Id <> departments.chiefId
 LIMIT 10 OFFSET 169;
-/*12) Создадим dump нашей базы данных*/
+/*14) Создадим dump нашей базы данных*/
 exit
 mysqldump -u bigtrader -p --opt TradeCompany > /home/bbrs/Desktop/Trade/TradeCompany_save.sql
 /*
@@ -214,3 +214,113 @@ source TradeCompany_save.sql;
 /*======================================================================================*/
 /* Voila ! 
 La tâche est accomplie ! */
+/*======================================================================================*/
+
+/*branch:  feature_15*/
+/*15) Среднее количество сотрудников в одном отделе*/
+SELECT ( SELECT COUNT(*) FROM personnels ) / ( SELECT COUNT(*) FROM departments );
+
+/*16) Показать отделы, в которых количество сотрудников больше среднего, отсортировать по убыванию*/
+SELECT departments.Id, departments.departmentName, COUNT(*) AS employeesNum
+FROM personnels INNER JOIN departments ON departments.Id = personnels.departmentId  
+GROUP BY departmentId
+HAVING COUNT(*) >  ( SELECT COUNT(*) FROM personnels ) / ( SELECT COUNT(*) FROM departments ) 
+ORDER BY employeesNum DESC;
+
+/*17) Показать Id, фамилию, возраст сотрудников, возраст которых в диапазоне от 22 до 33,
+ указать порядковый номер этих сотрудников, начиная с 1 */
+SELECT @n := 0; 
+SELECT
+@n := @n + 1 AS num,
+personnels.Id, personnels.surname, 
+( YEAR(CURRENT_DATE) - YEAR(birthDate) - (DATE_FORMAT(CURRENT_DATE, '%m%d') < DATE_FORMAT(birthDate, '%m%d')) ) AS age
+FROM personnels
+WHERE 
+( ( YEAR(CURRENT_DATE) - YEAR(birthDate) - (DATE_FORMAT(CURRENT_DATE, '%m%d') < DATE_FORMAT(birthDate, '%m%d')) ) > 22 )
+AND 
+( ( YEAR(CURRENT_DATE) - YEAR(birthDate) - (DATE_FORMAT(CURRENT_DATE, '%m%d') < DATE_FORMAT(birthDate, '%m%d')) ) < 33 );
+
+/*18) Показать Id, фамилию, возраст сотрудников, возраст которых либо 22 либо 33 года,
+ указать порядковый номер этих сотрудников, начиная с 1. Вывести 10 строк, пропустив первые 15.  */
+SELECT @n := 0; 
+SELECT
+@n := @n + 1 AS num,
+personnels.Id, personnels.surname, 
+( YEAR(CURRENT_DATE) - YEAR(birthDate) - (DATE_FORMAT(CURRENT_DATE, '%m%d') < DATE_FORMAT(birthDate, '%m%d')) ) AS age
+FROM personnels
+WHERE ( YEAR(CURRENT_DATE) - YEAR(birthDate) - (DATE_FORMAT(CURRENT_DATE, '%m%d') < DATE_FORMAT(birthDate, '%m%d')) ) IN(22,33)
+LIMIT 10 OFFSET 15;
+
+/*19) Показать фамилии и количество тех однофамильцев (независимо от пола) в компании, число которых больше 5 */
+/*SET sql_mode = 'ONLY_FULL_GROUP_BY';*/
+SET sql_mode = '';
+SELECT personnels.surname, 
+SUBSTRING( personnels.surname, 1, CHAR_LENGTH(personnels.surname) - 2 ) AS family, 
+COUNT(*) AS numb
+FROM personnels
+GROUP BY family
+HAVING COUNT(*) > 5;
+
+/*20) Показать фамилии и количество тех однофамильцев (независимо от пола) в компании, число которых 
+больше 0,7 от рекордного числа однофамильцев*/
+SELECT personnels.surname, 
+SUBSTRING( personnels.surname, 1, CHAR_LENGTH(personnels.surname) - 2 ) AS family, 
+COUNT(*) AS numb,
+(
+	SELECT  
+	COUNT(*) AS numb
+	FROM personnels
+	GROUP BY SUBSTRING( personnels.surname, 1, CHAR_LENGTH(personnels.surname) - 2 )  
+	ORDER BY numb DESC LIMIT 1
+) AS maxnumb
+FROM personnels
+GROUP BY family
+HAVING COUNT(*) > maxnumb * 0.7;
+
+/*21) Показать число однофамильцев внутри каждого отдела. */
+SELECT 
+personnels.departmentId,
+personnels.surname, 
+SUBSTRING( personnels.surname, 1, CHAR_LENGTH(personnels.surname) - 2 ) AS family, 
+COUNT(*) AS numb
+FROM personnels
+GROUP BY family, departmentId
+HAVING COUNT(*) > 1;
+
+/*22) Показать число однофамильцев для каждого отдела, а так же Фамилию.И.О. каждого*/
+SELECT 
+personnels.departmentId,
+GROUP_CONCAT( CONCAT(personnels.surname, ' ',SUBSTRING(personnels.name, 1, 1), '.',SUBSTRING(personnels.patronymic, 1, 1), '.') ) as fio, 
+SUBSTRING( personnels.surname, 1, CHAR_LENGTH(personnels.surname) - 2 ) AS family, 
+COUNT(*) AS numb
+FROM personnels
+GROUP BY family, departmentId
+HAVING COUNT(*) > 1
+ORDER BY personnels.departmentId;
+
+/*23) Показать Id отдела, название отдела, фамилию нач. отдела,
+число однофамильцев для каждого отдела, а так же Фамилию.И.О. каждого однофамильца*/
+/*  to leave <pager less -SFX> press <q> */
+pager less -SFX
+SELECT 
+personnels.departmentId as depId, 
+departments.departmentName as dep,
+(
+	SELECT personnels.surname
+	FROM personnels
+	WHERE personnels.Id = departments.chiefId
+) as Chief,
+GROUP_CONCAT( CONCAT(personnels.surname, ' ',SUBSTRING(personnels.name, 1, 1), '.',SUBSTRING(personnels.patronymic, 1, 1), '.') ) as fio, 
+SUBSTRING( personnels.surname, 1, CHAR_LENGTH(personnels.surname) - 2 ) AS family, 
+COUNT(*) AS numb
+FROM personnels 
+INNER JOIN departments ON departments.Id = personnels.departmentId
+GROUP BY family, departmentId
+HAVING COUNT(*) > 1
+ORDER BY personnels.departmentId;
+
+/*24) Id отдела, название отдела, фамилия начальника отдела*/
+SELECT departments.Id, departments.departmentName, personnels.surname
+FROM personnels INNER JOIN departments ON departments.chiefId = personnels.Id;
+
+/*============================================================================================*/
